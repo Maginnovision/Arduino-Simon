@@ -1,11 +1,3 @@
-/* This is a simple simon game. Setup is simple with minimal components and wiring.
-Speaker is installed to pin 7 through a 100ohm resistor.
-LEDS are connected to labelled pins through 220ohm resistors, red, green, blue and yellow LEDS are used.
-Using DEFINITIONS frequencies for color sounds are easily set
-Switches are connected to Pins directly next to companion LED pins, pins must be set to have
-pullup resistors enabled. Connect from pins, to switches, to ground. Pulls pin LOW when switch pressed.
-All pins can easily be swapped by changing definitions as long as switches are LED pin +1
-*/
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 
@@ -75,25 +67,41 @@ void loop() {
       input = 0; //Make sure input is zeroed
       sleep_timer = millis();
       
-      //Check for input. Since it's on a loop we need to check to make sure input is 0 for all presses
+      //Check for input. Messy to take care of press debounce
       while(!input) {
         port_d = (PIND & 0x0F);
-        if (!(port_d & RBBIT) && !input) input = R;
-        if (!(port_d & GBBIT) && !input) input = G;
-        if (!(port_d & BBBIT) && !input) input = B;
-        if (!(port_d & YBBIT) && !input) input = Y;
+        if (!(port_d & RBBIT) && !input) {
+          input = R;
+          Red();
+        }
+        if (!(port_d & GBBIT) && !input) {
+          input = G;
+          Green();
+        }
+        if (!(port_d & BBBIT) && !input) {
+          input = B;
+          Blue();
+        }
+        if (!(port_d & YBBIT) && !input) {
+          input = Y;
+          Yellow();
+        }
         
         if (millis() - sleep_timer >= SLEEP_TIME) sleep_mode();
       }
       
-      //lights and color of button pressed while held
-      //Also helps take care of debouncing
-      while(!(PIND & RBBIT)) Red();
-      while(!(PIND & GBBIT)) Green();
-      while(!(PIND & BBBIT)) Blue();
-      while(!(PIND & YBBIT)) Yellow();
-      delay(75);
+      //These lines are to keep lights and sound going while button is held
+      while(!(PIND & RBBIT) && input == R) Red();
+      while(!(PIND & GBBIT) && input == G) Green();
+      while(!(PIND & BBBIT) && input == B) Blue();
+      while(!(PIND & YBBIT) && input == Y) Yellow();
       
+      //This is for a depress debounce
+      if (input == R) Red();
+      if (input == G) Green();
+      if (input == B) Blue();
+      if (input == Y) Yellow();
+
       if (input != game_nums[i]) GameOver(); //If player pressed right input game continues, else game over lights/sound
     }
     
@@ -168,7 +176,7 @@ void GameOver() {
     delay(100);
     PORTB &= ~BLBIT;
     
-    if (millis() - sleep_timer >= (SLEEP_TIME / 6)) sleep_mode();
+    if (millis() - sleep_timer >= (SLEEP_TIME / 5)) sleep_mode();
    }
 }
   
