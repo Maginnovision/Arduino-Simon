@@ -11,7 +11,7 @@
 #define BBBIT 0x02
 #define YBBIT 0x01
 
-///Defines frequencies for sounds
+//Defines frequencies for sounds
 #define RED_SOUND 100
 #define YELLOW_SOUND 200
 #define BLUE_SOUND 300
@@ -27,7 +27,8 @@
 #define SLEEP_TIME 60000 //Sleep time in milliseconds
 
 //global variables, easy to use and program does not use much memory
-byte game_nums[20]; //colors for rounds stored here
+#define ROUNDS 20
+byte game_nums[ROUNDS]; //colors for rounds stored here
 byte turn = 0; //Which turn/round number it currently is
 byte input = 0; //Byte for holding input
 unsigned long sleep_timer = 0;
@@ -87,7 +88,7 @@ void loop() {
           Yellow();
         }
         
-        if (millis() - sleep_timer >= SLEEP_TIME) sleep_mode();
+        if (millis() - sleep_timer >= SLEEP_TIME) Sleep();
       }
       
       //These lines are to keep lights and sound going while button is held
@@ -95,24 +96,18 @@ void loop() {
       while(!(PIND & GBBIT) && input == G) Green();
       while(!(PIND & BBBIT) && input == B) Blue();
       while(!(PIND & YBBIT) && input == Y) Yellow();
-      
-      //This is for a depress debounce
-      if (input == R) Red();
-      if (input == G) Green();
-      if (input == B) Blue();
-      if (input == Y) Yellow();
 
       if (input != game_nums[i]) GameOver(); //If player pressed right input game continues, else game over lights/sound
     }
     
-    delay(1250); //Delay before displaying next round
+    delay(900); //Delay before displaying next round
     turn++; //Increment turn number, if you don't game will keep replaying same round
 }
 
 //Starts a new game
 void GetNewGame() {
   randomSeed(analogRead(0) + analogRead(5)); //Seed random number generator with a floating input
-  for (size_t i = 0; i < 20; ++i) game_nums[i] = random(1, 5);
+  for (size_t i = 0; i < ROUNDS; ++i) game_nums[i] = random(1, 5);
 }
 
 //Plays lights/colors
@@ -123,16 +118,16 @@ void SimonSay() {
     //Call appropriate function by color, Can tune for difficulty
     switch (game_nums[i]) {
       case R:
-      for (size_t i = 0; i < 10; ++i) Red();
+      for (size_t i = 0; i < 7; ++i) Red();
       break;     
       case G:
-      for (size_t i = 0; i < 10; ++i) Green();
+      for (size_t i = 0; i < 7; ++i) Green();
       break;
       case B:
-      for (size_t i = 0; i < 10; ++i) Blue();
+      for (size_t i = 0; i < 7; ++i) Blue();
       break;
       case Y:
-      for (size_t i = 0; i < 10; ++i) Yellow();
+      for (size_t i = 0; i < 7; ++i) Yellow();
       break;
     }
   }
@@ -147,7 +142,7 @@ void GameOver() {
   
   while(1) {
     PORTB |= RLBIT;
-    tone(SPEAKER, RED_SOUND, 85);
+    tone(SPEAKER, RED_SOUND, 95);
     delay(100);
     PORTB &= ~RLBIT;
     
@@ -176,10 +171,16 @@ void GameOver() {
     delay(100);
     PORTB &= ~BLBIT;
     
-    if (millis() - sleep_timer >= (SLEEP_TIME / 5)) sleep_mode();
+    if (millis() - sleep_timer >= (SLEEP_TIME / 5)) Sleep();
    }
 }
-  
+
+void Sleep() {
+  PORTB |= 0xF0;
+  noTone(SPEAKER);
+  sleep_mode();
+}
+
 //RED LED and speaker sound
 void Red() {
   PORTB &= ~RLBIT;
