@@ -1,6 +1,7 @@
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
+#include <EEPROM.h>
 #include "small_display.h"
 
 #define RLBIT 0x10
@@ -38,7 +39,7 @@ byte port_d = 0;
 
 Adafruit_SSD1306 display(A3, A2);
 
-ISR(PCINT0_vect) {  
+ISR(PCINT0_vect) {
   if (PINB & 0x04) {
     PORTB |= 0xF0;
     PORTF &= ~0xC0;
@@ -48,15 +49,15 @@ ISR(PCINT0_vect) {
   }
 }
 
-void setup() 
-{ 
+void setup()
+{
   //Seed RNG with analog reads, and disable ADC/usart
   randomSeed(analogRead(0) + analogRead(5)); //Seed random number generator with a floating input
   power_adc_disable();
   power_usart1_disable();
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
-  
+
   //Set LED pins to outputs
   DDRB = 0xF1; //LED's and speaker are outputs
   PORTB = 0xF4; //Enable power button pullup
@@ -67,67 +68,66 @@ void setup()
 
   GetNewGame(); //Start a new game
   pciSetup(POWER); //Enable interrupt
-  
+
   delay(500);
   display.begin();
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
   sleep_enable();
   sleep_timer = millis();
 }
 
-void loop() { 
-    display.clearDisplay();
-    display.setCursor(0,0);
-    display.println("Follow me!");
-    display.display();
-    SimonSay(); //Function for lights and sounds based on global game_nums[]
+void loop() {
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("Follow me!");
+  display.display();
+  
+  SimonSay(); //Function for lights and sounds based on global game_nums[]
 
-    display.clearDisplay();
-    display.setCursor(0,0);
-    display.print("Round: ");
-    display.print(turn+1);
-    display.display();
-      
-    ///Get and check player input
-    for (size_t i = 0; i <= turn; ++i) {
-      input = 0; //Make sure input is zeroed
-      sleep_timer = millis();
-      
-      //Check for input. Messy to take care of press debounce
-      while(!input) {
-        port_d = (PIND & 0x0F);
-        if (!(port_d & RBBIT) && !input) {
-          input = R;
-          Red();
-        }
-        if (!(port_d & GBBIT) && !input) {
-          input = G;
-          Green();
-        }
-        if (!(port_d & BBBIT) && !input) {
-          input = B;
-          Blue();
-        }
-        if (!(port_d & YBBIT) && !input) {
-          input = Y;
-          Yellow();
-        }
-        
-        if (millis() - sleep_timer >= SLEEP_TIME) Sleep();
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.print("Round: ");
+  display.print(turn + 1);
+  display.display();
+
+  ///Get and check player input
+  for (size_t i = 0; i <= turn; ++i) {
+    input = 0; //Make sure input is zeroed
+    sleep_timer = millis();
+
+    //Check for input. Messy to take care of press debounce
+    while (!input) {
+      port_d = (PIND & 0x0F);
+      if (!(port_d & RBBIT) && !input) {
+        input = R;
+        Red();
       }
-      
-      //These lines are to keep lights and sound going while button is held
-      while(!(PIND & RBBIT) && input == R) Red();
-      while(!(PIND & GBBIT) && input == G) Green();
-      while(!(PIND & BBBIT) && input == B) Blue();
-      while(!(PIND & YBBIT) && input == Y) Yellow();
+      if (!(port_d & GBBIT) && !input) {
+        input = G;
+        Green();
+      }
+      if (!(port_d & BBBIT) && !input) {
+        input = B;
+        Blue();
+      }
+      if (!(port_d & YBBIT) && !input) {
+        input = Y;
+        Yellow();
+      }
 
-      if (input != game_nums[i]) GameOver(); //If player pressed right input game continues, else game over lights/sound
+      if (millis() - sleep_timer >= SLEEP_TIME) Sleep();
     }
-    
-    delay(900); //Delay before displaying next round
-    turn++; //Increment turn number, if you don't game will keep replaying same round
+
+    //These lines are to keep lights and sound going while button is held
+    while (!(PIND & RBBIT) && input == R) Red();
+    while (!(PIND & GBBIT) && input == G) Green();
+    while (!(PIND & BBBIT) && input == B) Blue();
+    while (!(PIND & YBBIT) && input == Y) Yellow();
+
+    if (input != game_nums[i]) GameOver(); //If player pressed right input game continues, else game over lights/sound
+  }
+
+  delay(900); //Delay before displaying next round
+  turn++; //Increment turn number, if you don't game will keep replaying same round
 }
 
 //Starts a new game
@@ -136,65 +136,71 @@ void GetNewGame() {
 }
 
 //Plays lights/colors
-void SimonSay() {  
-  for (size_t i = 0; i <= turn; ++i) {    
+void SimonSay() {
+  for (size_t i = 0; i <= turn; ++i) {
     delay(225); //Delay between colors, less delay makes it more difficult
-    
+
     //Call appropriate function by color, Can tune for difficulty
     switch (game_nums[i]) {
       case R:
-      for (size_t i = 0; i < 7; ++i) Red();
-      break;     
+        for (size_t i = 0; i < 7; ++i) Red();
+        break;
       case G:
-      for (size_t i = 0; i < 7; ++i) Green();
-      break;
+        for (size_t i = 0; i < 7; ++i) Green();
+        break;
       case B:
-      for (size_t i = 0; i < 7; ++i) Blue();
-      break;
+        for (size_t i = 0; i < 7; ++i) Blue();
+        break;
       case Y:
-      for (size_t i = 0; i < 7; ++i) Yellow();
-      break;
+        for (size_t i = 0; i < 7; ++i) Yellow();
+        break;
     }
   }
 }
-            
+
 void GameOver() {
   //Game is over, be annoying until a reset happens
   //When reset interrupt is called game turns false
+  uint8_t high_score = EEPROM.read(0);
+  if (turn > high_score) {
+    EEPROM.write(0, turn);
+    high_score = turn;
+  }
+  
   display.clearDisplay();
-  display.setCursor(0,0);
-  display.println("GAME");
-  display.println("  OVER!");
+  display.setCursor(0, 0);
+  display.println("GAME OVER!");
   display.print("Score: ");
-  display.println((turn * 17));
-  display.print("Turn: ");
-  display.print(turn+1);
+  display.println(turn * 19);
+  display.print("Best: ");
+  display.print(high_score * 19);
   display.display();
+  
   PORTB &= ~0xF0;
-  
+
   sleep_timer = millis();
-  
-  while(1) {
+
+  while (1) {
     PORTB |= RLBIT;
     tone(SPEAKER, RED_SOUND, 95);
     delay(100);
     PORTB &= ~RLBIT;
-    
+
     PORTB |= BLBIT;
     tone(SPEAKER, BLUE_SOUND, 95);
     delay(100);
     PORTB &= ~BLBIT;
-    
+
     PORTB |= GLBIT;
     tone(SPEAKER, GREEN_SOUND, 95);
     delay(100);
     PORTB &= ~GLBIT;
-    
+
     PORTB |= YLBIT;
     tone(SPEAKER, YELLOW_SOUND, 95);
     delay(100);
     PORTB &= ~YLBIT;
-    
+
     PORTB |= GLBIT;
     tone(SPEAKER, GREEN_SOUND, 95);
     delay(100);
@@ -204,9 +210,9 @@ void GameOver() {
     tone(SPEAKER, BLUE_SOUND, 95);
     delay(100);
     PORTB &= ~BLBIT;
-    
+
     if (millis() - sleep_timer >= (SLEEP_TIME / 4)) Sleep();
-   }
+  }
 }
 
 void Sleep() {
@@ -251,6 +257,6 @@ void Yellow() {
 void pciSetup(byte pin) {
   *digitalPinToPCMSK(pin) |= bit (digitalPinToPCMSKbit(pin));  // enable pin
   PCIFR  |= bit (digitalPinToPCICRbit(pin)); // clear any outstanding interrupt
-  PCICR  |= bit (digitalPinToPCICRbit(pin)); // enable interrupt for the group 
+  PCICR  |= bit (digitalPinToPCICRbit(pin)); // enable interrupt for the group
 }
 
