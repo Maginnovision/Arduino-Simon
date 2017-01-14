@@ -31,30 +31,25 @@
 
 //global variables, easy to use and program does not use much memory
 #define ROUNDS 50
-byte game_nums[ROUNDS]; //colors for rounds stored here
-byte turn = 0; //Which turn/round number it currently is
-byte input = 0; //Byte for holding input
-unsigned long sleep_timer = 0;
-byte port_d = 0;
+uint8_t game_nums[ROUNDS]; //colors for rounds stored here
+uint8_t turn = 0; //Which turn/round number it currently is
+uint8_t input = 0; //Byte for holding input
+uint32_t sleep_timer = 0;
+uint8_t port_d = 0;
 
 Adafruit_SSD1306 display(A3, A2);
 
 ISR(PCINT0_vect) {
   if (PINB & 0x04) {
-    PORTB |= 0xF0;
-    PORTF &= ~0xC0;
-    noTone(SPEAKER);
-    delay(300);
+    PORTB |= 0xF0; //Turn LEDs off
+    PORTF &= ~0xC0; //Cut power to display
+    noTone(SPEAKER); //Turn off speaker
     wdt_enable(WDTO_15MS);
   }
 }
 
 void setup()
 {
-  //Seed RNG with analog reads, and disable ADC/usart
-  randomSeed(analogRead(0) + analogRead(5)); //Seed random number generator with a floating input
-  power_adc_disable();
-  power_usart1_disable();
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 
 
@@ -70,6 +65,7 @@ void setup()
   pciSetup(POWER); //Enable interrupt
 
   delay(500);
+  if (!(PIND & 0x0F)) EEPROM.write(0,0);
   display.begin();
   sleep_enable();
   sleep_timer = millis();
@@ -78,7 +74,7 @@ void setup()
 void loop() {
   display.clearDisplay();
   display.setCursor(0, 0);
-  display.println("Follow me!");
+  display.println("Watch me!");
   display.display();
   
   SimonSay(); //Function for lights and sounds based on global game_nums[]
@@ -132,6 +128,8 @@ void loop() {
 
 //Starts a new game
 void GetNewGame() {
+  //Seed random number generator with analog reads, we do all 5 because display will keep 4 of them at constant values
+  randomSeed(analogRead(4) + analogRead(5));
   for (size_t i = 0; i < ROUNDS; ++i) game_nums[i] = random(1, 5);
 }
 
@@ -158,28 +156,15 @@ void SimonSay() {
   }
 }
 
+//Game is over, be annoying until a reset happens
 void GameOver() {
-  //Game is over, be annoying until a reset happens
-  //When reset interrupt is called game turns false
-  uint8_t high_score = EEPROM.read(0);
-  if (turn > high_score) {
-    EEPROM.write(0, turn);
-    high_score = turn;
-  }
+  HighScore();
   
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.println("GAME OVER!");
-  display.print("Score: ");
-  display.println(turn * 19);
-  display.print("Best: ");
-  display.print(high_score * 19);
-  display.display();
-  
-  PORTB &= ~0xF0;
+  PORTB &= ~0xF0; //Turn on all LEDs
 
   sleep_timer = millis();
 
+  //Turn LED's off one at a time until sleep or player resets
   while (1) {
     PORTB |= RLBIT;
     tone(SPEAKER, RED_SOUND, 95);
@@ -216,10 +201,10 @@ void GameOver() {
 }
 
 void Sleep() {
-  PORTB |= 0xF0; //
+  PORTB |= 0xF0; //Turn off LEDS
   PORTF &= ~0x80; //Cut power to LCD
-  noTone(SPEAKER);
-  sleep_mode();
+  noTone(SPEAKER); //Turn off speaker
+  sleep_mode(); //Go to sleep
 }
 
 //RED LED and speaker sound
@@ -254,6 +239,25 @@ void Yellow() {
   PORTB |= YLBIT;
 }
 
+void HighScore() {
+  //Handle high score
+  uint8_t high_score = EEPROM.read(0);
+  if (turn > high_score) {
+    EEPROM.write(0, turn);
+    high_score = turn;
+  }
+
+  //Print game results
+  display.clearDisplay();
+  display.setCursor(0, 0);
+  display.println("GAME OVER!");
+  display.print("Score: ");
+  if (turn < 6) display.println(turn * 19);
+  else display.print(turn * 19);
+  display.print("Best: ");
+  display.print(high_score * 19);
+  display.display();
+}
 void pciSetup(byte pin) {
   *digitalPinToPCMSK(pin) |= bit (digitalPinToPCMSKbit(pin));  // enable pin
   PCIFR  |= bit (digitalPinToPCICRbit(pin)); // clear any outstanding interrupt
